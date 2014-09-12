@@ -1,22 +1,152 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project>
 
-	<properties>
-		<!---->
-	</properties>
-
-	<dependencies>
-
-		<!---->
-
-	</dependencies>
-
 	<build>
 		<plugins>
 
-			<!---->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-scm-plugin</artifactId>
+				<version>1.9.1</version>
+			</plugin>
+
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>versions-maven-plugin</artifactId>
+				<version>2.1</version>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.portals.jetspeed-2</groupId>
+				<artifactId>jetspeed-mvn-maven-plugin</artifactId>
+				<version>2.2.2</version>
+				<configuration>
+					<targets combine.children="append">
+
+						<target>
+							<id>release-validate</id>
+							<goals>scm:validate,scm:check-local-modification</goals>
+							<profiles>release</profiles>
+						</target>
+
+						<target>
+							<id>release-prepare</id>
+							<goals>versions:set,versions:update-properties</goals>
+							<profiles>release</profiles>
+							<properties>
+								<newVersion>${release.version.this}</newVersion>
+							</properties>
+							<depends>release-validate</depends>
+						</target>
+
+						<target>
+							<id>release-build</id>
+							<goals>clean,package,deploy</goals>
+							<profiles>release</profiles>
+							<depends>release-prepare</depends>
+						</target>
+
+						<target>
+							<id>release-tag</id>
+							<goals>scm:tag</goals>
+							<profiles>release</profiles>
+							<properties>
+								<message>${project.artifactId} released to ${release.version.this}.</message>
+							</properties>
+							<depends>release-build</depends>
+						</target>
+
+						<target>
+							<id>release-finalise</id>
+							<goals>versions:set</goals>
+							<profiles>release</profiles>
+							<properties>
+								<newVersion>${release.version.next}</newVersion>
+							</properties>
+							<depends>release-tag</depends>
+						</target>
+
+						<target>
+							<id>release-commit</id>
+							<goals>scm:checkin</goals>
+							<profiles>release</profiles>
+							<properties>
+								<message>${project.artifactId} iterated to ${release.version.next}.</message>
+							</properties>
+							<depends>release-finalise</depends>
+						</target>
+
+						<target>
+							<id>release</id>
+							<profiles>release</profiles>
+							<depends>release-finalise</depends>
+						</target>
+
+					</targets>
+				</configuration>
+			</plugin>
 
 		</plugins>
 	</build>
+
+	<profiles>
+		<profile>
+			<id>release</id>
+
+			<build>
+				<plugins>
+
+					<plugin>
+						<groupId>org.codehaus.mojo</groupId>
+						<artifactId>build-helper-maven-plugin</artifactId>
+						<version>1.8</version>
+						<executions>
+
+							<execution>
+								<id>release-version-generate</id>
+								<phase>compile</phase>
+								<goals>
+									<goal>regex-property</goal>
+								</goals>
+								<configuration>
+									<value>${project.version}</value>
+									<regex>^(.+)\-SNAPSHOT$</regex>
+									<name>release.version.this</name>
+								</configuration>
+							</execution>
+
+						</executions>
+					</plugin>
+
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-enforcer-plugin</artifactId>
+						<version>1.3.1</version>
+						<executions>
+
+							<execution>
+								<id>enforce-property</id>
+								<phase>validate</phase>
+								<goals>
+									<goal>enforce</goal>
+								</goals>
+								<configuration>
+									<rules>
+										<requireProperty>
+											<property>release.version.next</property>
+											<message>You must set the target development version!</message>
+										</requireProperty>
+									</rules>
+								</configuration>
+							</execution>
+
+						</executions>
+					</plugin>
+
+				</plugins>
+			</build>
+
+		</profile>
+	</profiles>
 
 </project>
